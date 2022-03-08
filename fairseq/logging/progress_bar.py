@@ -394,6 +394,7 @@ class WandBProgressBarWrapper(BaseProgressBar):
 
     def __init__(self, wrapped_bar, wandb_project, run_name=None):
         self.wrapped_bar = wrapped_bar
+        self.log_interval = None if not hasattr(wrapped_bar, 'log_interval') else wrapped_bar.log_interval
         if wandb is None:
             logger.warning("wandb not found, pip install wandb")
             return
@@ -427,13 +428,19 @@ class WandBProgressBarWrapper(BaseProgressBar):
         if step is None:
             step = stats["num_updates"]
 
+        # rate limit wandb logging to log_interval
+        if step > 0 and self.log_interval is not None:
+            wandb_commit = (step % self.log_interval == 0)
+        else:
+            wandb_commit = True
+
         prefix = "" if tag is None else tag + "/"
 
         for key in stats.keys() - {"num_updates"}:
             if isinstance(stats[key], AverageMeter):
-                wandb.log({prefix + key: stats[key].val}, step=step)
+                wandb.log({prefix + key: stats[key].val}, step=step, commit=wandb_commit)
             elif isinstance(stats[key], Number):
-                wandb.log({prefix + key: stats[key]}, step=step)
+                wandb.log({prefix + key: stats[key]}, step=step, commit=wandb_commit)
 
 
 try:
